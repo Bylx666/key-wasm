@@ -1,8 +1,9 @@
 [package]
 name = "key-wasm"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
-description = "Might be the most pretty and easy script language"
+description = "key-lang for wasm"
 license = "MPL-2.0"
 
-[dependencies]
+[lib]
+crate-type = ["cdylib"]
