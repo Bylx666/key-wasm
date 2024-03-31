@@ -1,1 +1,3 @@
-log(233)
+mod samples/b.ks> m;
+
+m.a()

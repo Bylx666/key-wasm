@@ -455,30 +455,49 @@ impl Scanner<'_> {
       i += 1;
     }
 
-    let path = String::from_utf8_lossy(&self.src[self.i()..i]).into_owned();
+    static mut PATH:String = String::new();
+    unsafe{PATH = String::from_utf8_lossy(&self.src[self.i()..i]).into_owned()}
     self.set_i(i + 1);
 
     self.spaces();
-    let name = intern(&self.ident().unwrap_or_else(||panic!("需要为模块命名")));
+    static mut NAME:Interned = unsafe {std::mem::transmute(&b"")};
+    unsafe {NAME = intern(&self.ident().unwrap_or_else(||panic!("需要为模块命名")))}
     self.spaces();
 
-    let file = std::fs::read(&*path).unwrap_or_else(|e|panic!(
-      "无法找到模块'{}'", path
-    ));
-    unsafe {
-      // 将报错位置写为该模块 并保存原先的报错数据
-      let mut place = std::mem::take(&mut crate::PLACE);
-      crate::PLACE = path.clone();
-      let line = crate::LINE;
-      crate::LINE = 1;
+    /// 行内定义返回值
+    static mut RET: Option<*const LocalMod> = None;
 
-      let mut module = crate::runtime::run(&scan(&file)).exports;
+    /// fetch回调函数
+    fn run(p:*mut u8, len:usize) {
+      let file = unsafe { Vec::<u8>::from_raw_parts(p, len, len) };
 
-      // 还原报错信息
-      crate::PLACE = std::mem::take(&mut place);
-      crate::LINE = line;
-      
-      Stmt::Mod(name, module)
+      unsafe {
+        // 将报错位置写为该模块 并保存原先的报错数据
+        let mut place = std::mem::take(&mut crate::PLACE);
+        crate::PLACE = PATH.clone();
+        let line = crate::LINE;
+        crate::LINE = 1;
+  
+        let mut module = crate::runtime::run(&scan(&file)).exports;
+  
+        // 还原报错信息
+        crate::PLACE = std::mem::take(&mut place);
+        crate::LINE = line;
+        
+        RET = Some(module);
+      }
+    }
+    unsafe{ 
+      // crate::fetch(PATH.as_ptr(), PATH.len()); 
+
+      // 阻塞等待返回
+      while let None = RET {
+        let s="233";
+        crate::log(s.as_bytes());
+      }
+
+      let s = RET.take().unwrap_unchecked();
+      Stmt::Mod(NAME, s)
     }
   }
 

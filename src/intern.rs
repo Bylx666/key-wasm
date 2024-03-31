@@ -15,8 +15,7 @@ pub fn init() {
 /// 将字符串缓存为指针
 pub fn intern(s:&[u8])-> Interned {
   let p = unsafe{&mut *POOL};
-  p.insert(s.into());
-  Interned { p:p.get(s.into()).unwrap() as *const Box<[u8]> }
+  Interned { p:p.get_or_insert(s.into()) as *const Box<[u8]> }
 }
 
 /// 字符串缓存

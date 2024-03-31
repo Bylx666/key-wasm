@@ -25,14 +25,9 @@ pub fn prelude()-> Vec<Variant> {
 
 /// 输出到控制台
 pub fn log(args:Vec<CalcRef>, _cx:Scope)-> Litr {
-  args.iter().for_each(|v|unsafe{
-    let s = v.str();
-    crate::err(s.as_ptr(), s.len());
-  });
+  args.iter().for_each(|v|
+    crate::log(v.str().as_bytes()));
   Litr::Uninit
-  // if let Litr::Str(p) = p {
-  //   println!("{}",p);
-  // }
 }
 
 /// 手动报错
