@@ -1,3 +1,3 @@
-mod samples/b.ks> m;
+mod /sample/b.ks> m;
 
-m.a()
+m-.a()
