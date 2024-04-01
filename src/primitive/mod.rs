@@ -97,7 +97,7 @@ pub fn get_prop(this:Scope, mut from:CalcRef, find:Interned)-> CalcRef {
   match &mut *from {
     // 本地class的实例
     Litr::Inst(inst)=> {
-      let can_access_private = unsafe {(*inst.cls).module} == this.exports;
+      let can_access_private = unsafe {(*inst.cls).cx.exports} == this.exports;
       let cls = unsafe {&*inst.cls};
 
       // 寻找属性

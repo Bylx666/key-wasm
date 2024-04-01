@@ -24,20 +24,20 @@ pub fn prelude()-> Vec<Variant> {
 }
 
 /// 输出到控制台
-pub fn log(args:Vec<CalcRef>, _cx:Scope)-> Litr {
+fn log(args:Vec<CalcRef>, _cx:Scope)-> Litr {
   args.iter().for_each(|v|
     crate::log(v.str().as_bytes()));
   Litr::Uninit
 }
 
 /// 手动报错
-pub fn throw(args:Vec<CalcRef>, _cx:Scope)-> Litr {
+fn throw(args:Vec<CalcRef>, _cx:Scope)-> Litr {
   let s = args.get(0).map_or("错误".to_string(),|s|s.str());
   panic!("{s}");
 }
 
 /// 在当前作用域 解析并运行一段String
-pub fn run_ks(args:Vec<CalcRef>, mut cx:Scope)-> Litr {
+fn run_ks(args:Vec<CalcRef>, mut cx:Scope)-> Litr {
   let s = args.get(0).expect("evil需要传入一个被解析的字符串或数组");
   let s = match &**s {
     Litr::Str(s)=> s.as_bytes(),

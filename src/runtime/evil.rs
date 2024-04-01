@@ -35,18 +35,10 @@ impl Scope {
 
       // 类型声明
       Stmt::Class(raw)=> {
-        // 为函数声明绑定作用域
-        let binder = |v:&ClassFuncRaw| {
-          ClassFunc { name: v.name, f: LocalFunc::new(&v.f, *self), public: v.public}
-        };
-        let methods:Vec<_> = raw.methods.iter().map(binder).collect();
-        let statics:Vec<_> = raw.statics.iter().map(binder).collect();
-        let props = raw.props.clone();
-        let module = self.exports;
-        let clsdef = ClassDef { name:raw.name, props, statics, methods, module };
+        let clsdef = ClassDef { p:*raw, cx:self.clone() };
         self.class_defs.push(clsdef);
         let using = self.class_defs.last_mut().unwrap() as *mut ClassDef;
-        self.class_uses.push((raw.name, Class::Local(using)));
+        self.class_uses.push((unsafe{(**raw).name}, Class::Local(using)));
       }
 
       Stmt::Using(alia, e)=> {
@@ -83,28 +75,20 @@ impl Scope {
 
       // 导出类 mod:
       Stmt::ExportCls(raw)=> {
-        // 为函数声明绑定作用域
-        let binder = |v:&ClassFuncRaw| {
-          // 延长函数体生命周期
-          let ptr = Box::leak(Box::new(v.f.clone()));
-          ClassFunc { name: v.name, f: LocalFunc::new(ptr, *self), public: v.public}
-        };
+        // 将class的定义复制一份, 因为其scan的结果会在模块运行完被drop
+        let name = unsafe{(**raw).name};
+        let cls = Box::into_raw(Box::new(raw.clone()));
         // 延长作用域生命周期
         outlive::increase_scope_count(*self);
-
-        let methods:Vec<_> = raw.methods.iter().map(binder).collect();
-        let statics:Vec<_> = raw.statics.iter().map(binder).collect();
-        let props = raw.props.clone();
-        let module = self.exports;
-        let clsdef = ClassDef { name:raw.name, props, statics, methods, module };
+        
+        let clsdef = ClassDef { p:*raw, cx:self.clone() };
         self.class_defs.push(clsdef);
         let using = self.class_defs.last_mut().unwrap() as *mut ClassDef;
-        self.class_uses.push((raw.name, Class::Local(using)));
-
+        self.class_uses.push((name, Class::Local(using)));
+        
         // 将指针推到export
-        let ptr = self.class_defs.last_mut().unwrap() as *mut ClassDef;
         let module = unsafe {&mut*self.exports};
-        module.classes.push((raw.name,ptr))
+        module.classes.push((name, using))
       }
 
       // 返回一个值

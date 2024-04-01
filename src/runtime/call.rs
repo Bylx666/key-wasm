@@ -45,7 +45,7 @@ impl Scope {
       Litr::Float(n)=> primitive::float::method(*n, name, args),
       Litr::Str(s)=> primitive::kstr::method(s, self, name, args),
       Litr::Inst(inst)=> {
-        let cannot_access_private = unsafe {(*inst.cls).module} != self.exports;
+        let cannot_access_private = unsafe {(*inst.cls).cx.exports} != self.exports;
         let cls = unsafe {&*inst.cls};
 
         let methods = &cls.methods;
@@ -54,9 +54,9 @@ impl Scope {
             if !mthd.public && cannot_access_private {
               panic!("'{}'类型的成员方法'{}'是私有的", cls.name, name)
             }
-            let mut f = mthd.f.clone();
+            let f = LocalFunc::new(&mthd.f, unsafe{&*inst.cls}.cx);
             let args = args.into_iter().map(|e|e.own()).collect();
-            return self.call_local_with_self(&f, args, &mut *targ);
+            return Scope::call_local_with_self(&f, args, &mut *targ);
           }
         }
 
@@ -70,50 +70,6 @@ impl Scope {
       }
       _=> panic!("没有'{}'方法\n  如果你需要调用属性作为函数,请使用(a.b)()的写法", name)
     }
-    // let mut left = self.calc_ref(left);
-    // // 匹配所有可能使用.运算符得到函数的类型(instance, obj)
-    // match &mut *left {
-    //   Litr::Inst(inst)=> {
-  
-    //     // 再找属性
-    //     let props = &cls.props;
-    //     for (n, prop) in props.iter().enumerate() {
-    //       if prop.name == right {
-    //         if !prop.public && cannot_access_private {
-    //           panic!("'{}'类型的成员属性'{}'是私有的", cls.name, right)
-    //         }
-    //         return self.call(args, CalcRef::Ref(&mut inst.v[n]));
-    //       }
-    //     }
-    //   }
-    //   Litr::Ninst(inst)=> {
-    //     use crate::native::{NativeInstance, NaitveInstanceRef};
-        
-    //     let cls = unsafe{&*inst.cls};
-    //     let inst: *mut NativeInstance = inst;
-    //     let bound = match left {
-    //       CalcRef::Own(v)=> if let Litr::Ninst(inst_own) = v {
-    //         NaitveInstanceRef::Own(inst_own)
-    //       }else {unreachable!()}
-    //       CalcRef::Ref(_)=> NaitveInstanceRef::Ref(inst)
-    //     };
-
-    //     // 先找方法
-    //     for (name, f) in cls.methods.iter() {
-    //       if *name == right {
-    //         return f(bound, args, self);
-    //       }
-    //     }
-
-    //     // 再找属性
-    //     return self.call(args, CalcRef::Own((cls.getter)(inst, right)));
-    //   }
-    //   Litr::Obj(map)=> return self.call(
-    //     args, CalcRef::Ref(map.get_mut(&right).unwrap_or_else(||panic!("'{}'不是一个函数", right)))),
-    //   Litr::Bool(v)=> panic!("Bool没有方法"),
-    //   Litr::Buf(v)=> return primitive::buf::method(v, right, args),
-    //   _=> ()
-    // }
   }
 
   /// 实际调用一个local function
@@ -122,7 +78,8 @@ impl Scope {
     let mut vars = Vec::with_capacity(16);
     let mut args = args.into_iter();
     for argdecl in f.argdecl.iter() {
-      let arg = args.next().unwrap_or(argdecl.default.clone());
+      let arg = args.next().unwrap_or_else(||f.scope.calc(&argdecl.default));
+      assert!(argdecl.t.is(&arg, self), "函数要求{:?}类型, 但传入了{:?}", argdecl.t, arg);
       let var = Variant {name:argdecl.name, v:arg, locked:false};
       vars.push(var);
     }
@@ -137,12 +94,12 @@ impl Scope {
   }
   
   /// 实际调用一个local function
-  pub fn call_local_with_self(self, f:&LocalFunc, args:Vec<Litr>, kself:*mut Litr)-> Litr {
+  pub fn call_local_with_self(f:&LocalFunc, args:Vec<Litr>, kself:*mut Litr)-> Litr {
     // 将传入参数按定义参数数量放入作用域
     let mut vars = Vec::with_capacity(16);
     let mut args = args.into_iter();
     for argdecl in f.argdecl.iter() {
-      let arg = args.next().unwrap_or(argdecl.default.clone());
+      let arg = args.next().unwrap_or_else(||f.scope.calc(&argdecl.default));
       let var = Variant {name:argdecl.name, v:arg, locked:false};
       vars.push(var);
     }

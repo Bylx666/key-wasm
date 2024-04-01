@@ -1,3 +1,4 @@
+
 mod /sample/b.ks> m;
 
-m-.a()
+log(m-:A::ok())

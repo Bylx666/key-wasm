@@ -25,13 +25,13 @@ pub enum Stmt {
   Lock      (Interned),
 
   // 定义类
-  Class     (ClassDefRaw),
+  Class     (*const ClassDefRaw),
   // 类别名
   Using     (Interned, Expr),
 
   Mod       (Interned, *const LocalMod),
   ExportFn  (Interned, LocalFuncRaw),
-  ExportCls (ClassDefRaw),
+  ExportCls (*const ClassDefRaw),
 
   Match,     // 模式匹配
 
@@ -90,12 +90,17 @@ pub struct ClassDefRaw {
 /// 绑定作用域的类声明
 #[derive(Debug, Clone)]
 pub struct ClassDef {
-  pub name: Interned,
-  pub props: Vec<ClassProp>,
-  pub statics: Vec<ClassFunc>,
-  pub methods: Vec<ClassFunc>,
-  /// 用来判断是否在模块外
-  pub module: *mut LocalMod
+  pub p: *const ClassDefRaw,
+  /// 代表该本地函数的上下文
+  /// 用来判断是否在模块外,
+  /// 如果属性使用了自定义class, 也会以此作用域寻找该class
+  pub cx: Scope
+}
+impl std::ops::Deref for ClassDef {
+  type Target = ClassDefRaw;
+  fn deref(&self) -> &Self::Target {
+    unsafe{&*self.p}
+  }
 }
 
 /// 类中的属性声明
@@ -408,9 +413,9 @@ impl Scanner<'_> {
     self.spaces();
     assert!(self.cur()==b'}', "class大括号未闭合");
     self.next();
-    Stmt::Class(ClassDefRaw {
+    Stmt::Class(Box::into_raw(Box::new(ClassDefRaw {
       name:intern(id), props, methods, statics
-    })
+    })))
   }
   
   
