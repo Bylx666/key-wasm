@@ -8,3 +8,5 @@ mod:A{
   },
 }
 mod.a() log(ll)
+
+log(A::{})
