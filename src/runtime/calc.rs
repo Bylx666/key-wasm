@@ -462,6 +462,21 @@ fn expr_set(mut this: Scope, left: &Expr, right: Litr) {
             map.insert(intern(s.as_bytes()), right);
           }else {panic!("Obj索引必须是Str")}
         }
+        // buf不能*get_index因为u8转uint会丢失引用
+        Litr::Buf(v)=> {
+          let i = match &*i {
+            Litr::Uint(n)=> *n,
+            Litr::Int(n)=> (*n) as usize,
+            _=> panic!("Buf的index必须是整数")
+          };
+          if i<v.len() {
+            v[i] = match right {
+              Litr::Int(n)=> n as u8,
+              Litr::Uint(n)=> n as u8,
+              _=> 0
+            };
+          }
+        }
         _=> *get_index(CalcRef::Ref(left), i) = right
       }
     }
