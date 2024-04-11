@@ -14,6 +14,7 @@ pub fn prelude()-> Vec<Variant> {
   }}
   prel!{
     b"log":log
+    b"debug":debug
     b"throw":throw
     b"run_ks":run_ks
     b"version":version
@@ -27,6 +28,12 @@ pub fn prelude()-> Vec<Variant> {
 fn log(args:Vec<CalcRef>, _cx:Scope)-> Litr {
   args.iter().for_each(|v|
     crate::log(v.str().as_bytes()));
+  Litr::Uninit
+}
+
+/// debug的格式输出
+fn debug(args:Vec<CalcRef>, _cx:Scope)-> Litr {
+  args.iter().for_each(|v|println!("{:?}", &**v));
   Litr::Uninit
 }
 

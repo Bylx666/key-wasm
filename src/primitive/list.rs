@@ -232,7 +232,7 @@ fn last(v:&mut Vec<Litr>)-> Litr {
 fn insert(v:&mut Vec<Litr>, args:Vec<CalcRef>)-> Litr {
   let mut args = args.into_iter();
   let index = to_usize(&*args.next().expect("list.insert需要传入一个数字作为插入位置"));
-  assert!(index<v.len(), "插入索引{index}不可大于等于数组长度{}",v.len());
+  assert!(index<=v.len(), "插入索引{index}不可大于数组长度{}",v.len());
 
   let to_insert = args.next().expect("list.insert需要传入第二个参数作为插入内容").own();
   v.insert(index, to_insert);
@@ -242,9 +242,9 @@ fn insert(v:&mut Vec<Litr>, args:Vec<CalcRef>)-> Litr {
 /// 插入多个元素
 fn insert_many(v:&mut Vec<Litr>, args:Vec<CalcRef>)-> Litr {
   let index = to_usize(&**args.get(0).expect("list.insert_many需要传入一个数字作为插入位置"));
-  assert!(index<v.len(), "插入索引{index}不可大于等于数组长度{}",v.len());
+  assert!(index<=v.len(), "插入索引{index}不可大于数组长度{}",v.len());
 
-  match &**args.get(0).expect("list.insert_many需要传入第二个参数作为插入内容") {
+  match &**args.get(1).expect("list.insert_many需要传入第二个参数作为插入内容") {
     Litr::Buf(b)=> {
       v.splice(index..index, b.iter().map(|n|Litr::Uint(*n as usize))).collect::<Vec<_>>();
     },
@@ -261,9 +261,9 @@ fn insert_many(v:&mut Vec<Litr>, args:Vec<CalcRef>)-> Litr {
 fn insert_many_clone(v:&mut Vec<Litr>, args:Vec<CalcRef>)-> Litr {
   let mut v = v.clone();
   let index = to_usize(&**args.get(0).expect("list.insert_many_clone需要传入一个数字作为插入位置"));
-  assert!(index<v.len(), "插入索引{index}不可大于等于数组长度{}",v.len());
+  assert!(index<=v.len(), "插入索引{index}不可大于数组长度{}",v.len());
 
-  match &**args.get(0).expect("list.insert_many_clone需要传入第二个参数作为插入内容") {
+  match &**args.get(1).expect("list.insert_many_clone需要传入第二个参数作为插入内容") {
     Litr::Buf(b)=> {
       v.splice(index..index, b.iter().map(|n|Litr::Uint(*n as usize))).collect::<Vec<_>>();
     },
@@ -475,20 +475,20 @@ fn includes(v:&mut Vec<Litr>, args:Vec<CalcRef>)-> Litr {
 fn index_of(v:&mut Vec<Litr>, args:Vec<CalcRef>, scope:Scope)-> Litr {
   let find = &**args.get(0).expect("list.index_of需要传入一个值");
   let res = v.iter().position(|n|n==find);
-  Litr::Int(match res {
-    Some(n)=> n as isize,
-    None=> -1
-  })
+  match res {
+    Some(n)=> Litr::Uint(n),
+    None=> Litr::Uninit
+  }
 }
 
 /// index_of反向版
 fn r_index_of(v:&mut Vec<Litr>, args:Vec<CalcRef>, scope:Scope)-> Litr {
   let find = &**args.get(0).expect("list.r_index_of需要传入一个值");
   let res = v.iter().rev().position(|n|n==find);
-  Litr::Int(match res {
-    Some(n)=> (v.len() - n - 1) as isize,
-    None=> -1
-  })
+  match res {
+    Some(n)=> Litr::Uint((v.len() - n - 1)),
+    None=> Litr::Uninit
+  }
 }
 
 /// 通过判断函数找到第一个对应值
