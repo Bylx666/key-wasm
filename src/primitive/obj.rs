@@ -3,13 +3,10 @@
 use crate::{
   intern::{intern, Interned}, 
   native::{NativeClassDef, NativeFn, NativeInstance}, 
-  primitive::{litr::Litr, sym::Symbol}, 
+  primitive::{litr::Litr, sym}, 
   runtime::{calc::CalcRef, Scope}
 };
 use std::collections::HashMap;
-
-/// from_list和group_by的键名留空时的占位符
-const UNNAMED:&[u8] = b"unnamed";
 
 /// obj.keys()返回的迭代器类型
 static mut ITER_KEYS:*mut NativeClassDef = std::ptr::null_mut();
@@ -145,7 +142,7 @@ pub fn statics()-> Vec<(Interned, NativeFn)> {
       b"Obj.keys", 
       |v| {
         let itr = v.v as *mut Keys<'_, Interned, Litr>;
-        (*itr).next().map_or(Litr::Sym(Symbol::IterEnd), 
+        (*itr).next().map_or(Litr::Sym(sym::Symbol::IterEnd), 
         |v|Litr::Str(v.str()))
       }, 
       |v| {
@@ -159,7 +156,7 @@ pub fn statics()-> Vec<(Interned, NativeFn)> {
       |v| {
         let itr = v.v as *mut Values<'_, Interned, Litr>;
         (*itr).next()
-          .map_or(Litr::Sym(Symbol::IterEnd),|v|v.clone())
+          .map_or(Litr::Sym(sym::Symbol::IterEnd),|v|v.clone())
       }, 
       |v| {
         drop(Box::from_raw(v.v as *mut Values<'_, Interned, Litr>))
@@ -171,7 +168,7 @@ pub fn statics()-> Vec<(Interned, NativeFn)> {
       b"Obj.entries", 
       |v| {
         let itr = v.v as *mut Iter<'_, Interned, Litr>;
-        (*itr).next().map_or(Litr::Sym(Symbol::IterEnd),|(k,v)|Litr::List(
+        (*itr).next().map_or(Litr::Sym(sym::Symbol::IterEnd),|(k,v)|Litr::List(
           vec![Litr::Str(k.str()), v.clone()]
         ))
       }, 
@@ -189,12 +186,12 @@ pub fn statics()-> Vec<(Interned, NativeFn)> {
   ]
 }
 
-/// 将两个Obj或Inst拼接成一个Obj,前后顺序会影响覆盖关系
+/// 将多个Obj或Inst拼接成一个Obj,前后顺序会影响覆盖关系
 fn s_concat(args:Vec<CalcRef>, _cx:Scope)-> Litr {
-  assert!(args.len()>=2, "Obj::concat需要传入2个拼接对象或实例");
   let mut o = HashMap::new();
-  _concat_extend(&mut o, &**args.get(0).unwrap());
-  _concat_extend(&mut o, &**args.get(1).unwrap());
+  for arg in args.into_iter() {
+    _concat_extend(&mut o, &*arg);
+  }
   Litr::Obj(o)
 }
 
@@ -207,9 +204,12 @@ fn s_from_list(args:Vec<CalcRef>, _cx:Scope)-> Litr {
   let mut o = HashMap::with_capacity(l.len());
   for v in l {
     if let Litr::List(v) = v {
-      let key = intern(v.get(0).map_or(UNNAMED,
-        |v|if let Litr::Str(s) = v {s.as_bytes()} else {UNNAMED}
-      ));
+      let key = if let Some(s) = v.get(0) {
+        if let Litr::Str(s) = s {
+          intern(s.as_bytes())
+        // 键对中如果第一个不是字符串就直接跳过
+        }else {continue;}
+      }else {continue;};
       let val = v.get(1).map_or(Litr::Uninit, |n|n.clone());
       o.insert(key, val);
     }
@@ -233,7 +233,7 @@ fn s_group_by(args:Vec<CalcRef>, cx:Scope)-> Litr {
     let sort_str = cx.call(vec![CalcRef::Ref(elem)], &f);
     let s = intern(
       if let Litr::Str(s) = &sort_str { s.as_bytes() } 
-      else {UNNAMED}
+      else {continue;}
     );
     
     match o.get_mut(&s) {
