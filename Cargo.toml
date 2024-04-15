@@ -1,6 +1,6 @@
 [package]
 name = "key-wasm"
-version = "1.0.0"
+version = "0.1.6"
 edition = "2021"
 description = "key-lang for wasm"
 license = "MPL-2.0"

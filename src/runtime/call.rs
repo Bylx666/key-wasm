@@ -42,8 +42,11 @@ impl Scope {
       Litr::List(v)=> primitive::list::method(v, self, name, args),
       Litr::Obj(o)=> primitive::obj::method(o, self, name, args),
       Litr::Int(n)=> primitive::int::method_int(*n, name, args),
+      Litr::Uint(n)=> primitive::int::method_uint(*n, name, args),
       Litr::Float(n)=> primitive::float::method(*n, name, args),
       Litr::Str(s)=> primitive::kstr::method(s, self, name, args),
+      Litr::Func(f)=> primitive::func::method(f, name, self, args),
+      Litr::Uninit=> panic!("uninit没有方法"),
       Litr::Inst(inst)=> {
         let cannot_access_private = unsafe {(*inst.cls).cx.exports} != self.exports;
         let cls = unsafe {&*inst.cls};
@@ -54,7 +57,7 @@ impl Scope {
             if !mthd.public && cannot_access_private {
               panic!("'{}'类型的成员方法'{}'是私有的", cls.name, name)
             }
-            let f = LocalFunc::new(&mthd.f, unsafe{&*inst.cls}.cx);
+            let mut f = LocalFunc::new(&mthd.f, cls.cx);
             let args = args.into_iter().map(|e|e.own()).collect();
             return Scope::call_local_with_self(&f, args, &mut *targ);
           }
@@ -68,47 +71,44 @@ impl Scope {
           .find(|(find,_)|name==*find).unwrap_or_else(||panic!("'{}'原生类型中没有'{}'方法\n  你需要用(x.{})()的写法吗?", cls.name, name, name));
         (*f)(inst, args, self)
       }
-      _=> panic!("没有'{}'方法\n  如果你需要调用属性作为函数,请使用(a.b)()的写法", name)
+      Litr::Sym(_)=>Litr::Uninit
     }
   }
 
   /// 实际调用一个local function
   pub fn call_local(self, f:&LocalFunc, args:Vec<Litr>)-> Litr {
-    // 将传入参数按定义参数数量放入作用域
-    let mut vars = Vec::with_capacity(16);
-    let mut args = args.into_iter();
-    for argdecl in f.argdecl.iter() {
-      let arg = args.next().unwrap_or_else(||f.scope.calc(&argdecl.default));
-      assert!(argdecl.t.is(&arg, f.scope), "函数要求{:?}类型, 但传入了{:?}", argdecl.t, arg);
-      let var = Variant {name:argdecl.name, v:arg, locked:false};
-      vars.push(var);
-    }
-
-    let mut ret = Litr::Uninit;
-    let mut scope = f.scope.subscope();
-    scope.return_to = &mut ret;
-    scope.vars = vars;
-    scope.kself = self.kself;
-    scope.run(&f.stmts);
-    ret
+    Scope::call_local_with_self(f, args, self.kself)
   }
   
-  /// 实际调用一个local function
+  /// 实际调用一个local function并传入self
   pub fn call_local_with_self(f:&LocalFunc, args:Vec<Litr>, kself:*mut Litr)-> Litr {
     // 将传入参数按定义参数数量放入作用域
-    let mut vars = Vec::with_capacity(16);
-    let mut args = args.into_iter();
-    for argdecl in f.argdecl.iter() {
-      let arg = args.next().unwrap_or_else(||f.scope.calc(&argdecl.default));
-      assert!(argdecl.t.is(&arg, f.scope), "函数要求{:?}类型, 但传入了{:?}", argdecl.t, arg);
-      let var = Variant {name:argdecl.name, v:arg, locked:false};
-      vars.push(var);
-    }
+    let init_vars = match &f.argdecl {
+      /// 正常传参
+      LocalFuncRawArg::Normal(argdecl)=> {
+        // 将传入参数按定义参数数量放入作用域
+        let mut vars = Vec::new();
+        let mut args = args.into_iter();
+        for argdecl in argdecl.iter() {
+          let arg = args.next().unwrap_or_else(||f.scope.calc(&argdecl.default));
+          assert!(argdecl.t.is(&arg, f.scope), "函数要求{:?}类型, 但传入了{:?}", argdecl.t, arg);
+          let var = Variant {name:argdecl.name, v:arg, locked:false};
+          vars.push(var);
+        }
+        vars
+      }
+      /// List传参
+      LocalFuncRawArg::Custom(name)=> {
+        let mut vars = Vec::new();
+        vars.push(Variant {name:*name, v:Litr::List(args), locked:false});
+        vars
+      }
+    };
 
     let mut ret = Litr::Uninit;
     let mut scope = f.scope.subscope();
     scope.return_to = &mut ret;
-    scope.vars = vars;
+    scope.vars = init_vars;
     scope.kself = kself;
     scope.run(&f.stmts);
     ret
