@@ -58,15 +58,15 @@ pub fn method(s:&mut String, scope:Scope, name:Interned, args:Vec<CalcRef>)-> Li
     b"repeat"=> Litr::Str(s.repeat(get_arg0!(usize))),
     b"replace"=> Litr::Str(_replace(s, args)),
     b"splice"=> splice(s, args),
-    b"trim"=> void!(*s = s.trim().to_string()),
-
-    // transmute
-    b"to_buf"=> Litr::Buf(s.as_bytes().to_vec()),
-    b"to_utf16"=> to_utf16(s),
-    b"split"=> split(s, args),
-
+    b"trim"=> Litr::Str(s.trim().to_string()),
+    
     b"case_eq"=> Litr::Bool(s.eq_ignore_ascii_case(get_arg0!(str "englisheq"))),
     b"lines"=> lines(s),
+
+    // transmute
+    b"split"=> split(s, args),
+    b"to_buf"=> Litr::Buf(s.as_bytes().to_vec()),
+    b"to_utf16"=> to_utf16(s),
     
     _=> panic!("Str上没有{}方法", name)
   }

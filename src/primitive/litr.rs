@@ -112,6 +112,11 @@ impl Litr {
   }
 }
 
+impl Default for Litr {
+  fn default() -> Self {
+    Litr::Uninit
+  }
+}
 impl std::fmt::Display for Litr {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.write_str(&self.str())
