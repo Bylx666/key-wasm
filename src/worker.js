@@ -30,6 +30,14 @@ WebAssembly.instantiateStreaming(
       err(ptr,len) {
         throw(wasm.read(ptr, len))
       },
+      key_try(run, catc) {
+        try {
+          _wasm.call0(run)
+        }catch (e) {
+          let s = utf8.from(e+"");
+          _wasm.call2(catc, wasm.write(s), s.byteLength);
+        }
+      },
       fetch_str(ptr,len) {
         // 读取字符串并fetch
         let req = new XMLHttpRequest();

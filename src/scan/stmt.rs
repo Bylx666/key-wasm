@@ -58,6 +58,12 @@ pub enum Stmt {
   Continue,                           // 立刻进入下一次循环
   Return    (Expr),                  // 函数返回
 
+  Throw (Expr),
+  Try {
+    stmt: Box<Stmt>,
+    catc: Option<(Interned, Statements)>
+  },
+
   // 表达式作为语句
   Expression(Expr),
 }
@@ -208,6 +214,10 @@ impl Scanner<'_> {
         b"break"=> Stmt::Break,
         b"continue"=> Stmt::Continue,
         b"async"|b"await"=> panic!("异步关键词暂未实现"),
+        b"throw"=> self.throwing(),
+        b"try"=> self.trying(),
+        b"catch"=> panic!("catch必须在try之后"),
+        b"match"=> panic!("match暂未实现"),
         _=> {
           let expr = self.expr_with_left(ident, vec![]);
           Stmt::Expression(expr)
@@ -583,6 +593,38 @@ impl Scanner<'_> {
         Stmt::ForIter {iterator, id:None, exec}
       }
     }
+  }
+  
+  /// throw
+  fn throwing(&self)-> Stmt {
+    self.spaces();
+    let expr = self.expr();
+    if let Expr::Empty = expr {
+      panic!("throw后需要一个表达式")
+    }
+    Stmt::Throw(expr)
+  }
+
+  /// try catch
+  fn trying(&self)-> Stmt {
+    let block = Box::new(self.stmt());
+
+    self.spaces();
+    if self.cur() == b'c' {
+      let catch_end = self.i() + 5;
+      if catch_end <= self.src.len() && &self.src[self.i()..catch_end] == b"catch" {
+        self.set_i(catch_end);
+        self.spaces();
+        let id = intern(self.ident().unwrap_or(b".err"));
+        let catc = match self.stmt() {
+          Stmt::Block(b)=> b,
+          _=> panic!("catch之后必须是错误变量名和块语句")
+        };
+        return Stmt::Try { stmt: block, catc:Some((id, catc)) };
+      }
+    }
+
+    Stmt::Try { stmt: block, catc: None }
   }
 }
 

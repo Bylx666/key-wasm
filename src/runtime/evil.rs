@@ -173,6 +173,49 @@ impl Scope {
       },
 
       Stmt::Match=>(),
+      
+      Stmt::Throw(s)=> panic!("{}", self.calc_ref(s).str()),
+      Stmt::Try { stmt, catc }=> {
+        // 感受wasm的魅力吧)呕
+        static mut TRYING: &Stmt = &Stmt::Empty;
+        static mut TRYING_SELF: Scope = Scope {ptr:std::ptr::null_mut()};
+        static mut CATCHING_NAME: Interned = unsafe{std::mem::transmute(0)};
+        static mut CATCHING: &Statements = &Statements(Vec::new());
+        static mut EMPTY_STMTS:Statements = Statements(Vec::new());
+
+        #[link(wasm_import_module = "key")]
+        extern {
+          fn key_try(t:fn(), c:fn(*mut u8, usize));
+        }
+
+        fn tryer() {
+          unsafe {TRYING_SELF.evil(TRYING)}
+        }
+        fn catcher(s:*mut u8, l:usize) {
+          unsafe {
+            let s = unsafe{String::from_utf8_unchecked(Vec::from_raw_parts(s, l, l))};
+            let mut scope = TRYING_SELF.subscope();
+            scope.vars.push(Variant { name:CATCHING_NAME, locked: false, v:  Litr::Str(s)});
+            scope.run(CATCHING);
+          }
+        }
+        
+        unsafe{
+          let stmt: &'static Stmt = unsafe{std::mem::transmute(&**stmt)};
+          TRYING = stmt;
+          TRYING_SELF = *self;
+          if let Some((name, stmts)) = catc {
+            let stmts: &'static Statements = unsafe{std::mem::transmute(stmts)};
+            CATCHING_NAME = *name;
+            CATCHING = stmts;
+            key_try(tryer, catcher)
+          }else {
+            CATCHING_NAME = intern(b".err");
+            CATCHING = &EMPTY_STMTS;
+            key_try(tryer, catcher)
+          }
+        }
+      }
 
       // -
       Stmt::Break=> panic!("break不在循环体内"),

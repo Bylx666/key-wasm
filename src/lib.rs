@@ -69,20 +69,22 @@ extern fn switch_print_ast(b:usize) {
   }}
 }
 
+static PANIC_HOOK: fn(&std::panic::PanicInfo) = |inf|{
+  let line = unsafe{LINE};
+  let place = unsafe{&*PLACE};
+  let s = if let Some(mes) = inf.payload().downcast_ref::<&'static str>() {
+    mes
+  }else if let Some(mes) = inf.payload().downcast_ref::<String>() {
+    mes
+  }else{"错误"};
+  let s = format!("\n> {}\n  {}:第{}行\n\n> Key Script CopyLeft by Subkey", s, place, line);
+  unsafe {err(s.as_bytes())}
+};
+
 #[no_mangle]
 extern fn init() {
   intern::init();
-  std::panic::set_hook(Box::new(|inf|{
-    let line = unsafe{LINE};
-    let place = unsafe{&*PLACE};
-    let s = if let Some(mes) = inf.payload().downcast_ref::<&'static str>() {
-      mes
-    }else if let Some(mes) = inf.payload().downcast_ref::<String>() {
-      mes
-    }else{"错误"};
-    let s = format!("\n> {}\n  {}:第{}行\n\n> Key Script CopyLeft by Subkey", s, place, line);
-    unsafe {err(s.as_bytes())}
-  }));
+  std::panic::set_hook(Box::new(PANIC_HOOK));
 }
 
 #[no_mangle]
@@ -112,19 +114,20 @@ unsafe extern fn set_str(p:*mut u8, len:usize) {
   NEXT_STR = (p,len);
 }
 
-// macro_rules! def_calling {{$(
-//   $n:ident(
-//     $($args:ident$(,)?)*
-//   )
-// )*} => {
-//   $(
-//     #[no_mangle]
-//     extern fn $n(f:fn($($args:usize,)*),$($args:usize,)*) {
-//       f($($args,)*)
-//     }
-//   )*
-// }}
-// def_calling!{
-//   call1(a)
-//   call2(a,b)
-// }
+macro_rules! def_calling {{$(
+  $n:ident(
+    $($args:ident$(,)?)*
+  )
+)*} => {
+  $(
+    #[no_mangle]
+    extern fn $n(f:fn($($args:usize,)*),$($args:usize,)*) {
+      f($($args,)*)
+    }
+  )*
+}}
+def_calling!{
+  call0()
+  call1(a)
+  call2(a,b)
+}
