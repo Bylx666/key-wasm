@@ -1,4 +1,16 @@
 
-mod /sample/b.ks> m;
+//mod /sample/b.ks> m;
 
-log(m-:A::{})
+
+let inner() {
+  class A{};
+  let a = 20;
+  let b = 40;
+}
+
+{
+  inner.unzip();
+  log(a, b, A::{});
+  // 20 40 60
+}
+:90
