@@ -206,6 +206,48 @@ impl Scanner<'_> {
   
       // 解析数字字面量
       b'0'..=b'9' => {
+        if self.cur()==b'0' {
+          match self.src[self.i()+1] {
+            // 解析16进制
+            b'x'=> {
+              self.set_i(self.i()+2);
+              let mut i = self.i();
+              loop {
+                match self.src[i] {
+                  b'0'..=b'9'|b'a'..=b'f'|b'A'..=b'F'=> i += 1,
+                  _=> break
+                }
+              }
+
+              let n = usize::from_str_radix(
+                &String::from_utf8_lossy(&self.src[self.i()..i]), 16
+              ).unwrap_or_else(|e|panic!("{e}"));
+              self.set_i(i);
+
+              return Expr::Literal(Litr::Uint(n));
+            }
+            // 解析2进制
+            b'b'=> {
+              self.set_i(self.i()+2);
+              let mut i = self.i();
+              loop {
+                match self.src[i] {
+                  b'0'|b'1'=> i += 1,
+                  _=> break
+                }
+              }
+
+              let n = usize::from_str_radix(
+                &String::from_utf8_lossy(&self.src[self.i()..i]), 2
+              ).unwrap_or_else(|e|panic!("{e}"));
+              self.set_i(i);
+
+              return Expr::Literal(Litr::Uint(n));
+            }
+            _=>()
+          }
+        }
+        
         let mut is_float = false;
         while i < len {
           match self.src[i] {
