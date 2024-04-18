@@ -534,7 +534,7 @@ impl Scanner<'_> {
     let name = intern(&self.ident().unwrap_or_else(||panic!("需要为模块命名")));
     self.spaces();
 
-    let file = crate::fetch_str(path.as_bytes());
+    let file = crate::fetch_mod(path.as_bytes());
 
     unsafe {
       // 将报错位置写为该模块 并保存原先的报错数据

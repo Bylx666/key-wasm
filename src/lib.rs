@@ -23,10 +23,10 @@ fn log(s:&[u8]) {
 }
 
 /// 手动报错
-fn err(s:&[u8])->! {
+fn err(s:&[u8]) {
   #[link(wasm_import_module = "key")]
   extern {
-    fn err(s_ptr:*const u8, s_len:usize)->!;
+    fn err(s_ptr:*const u8, s_len:usize);
   }
   unsafe {err(s.as_ptr(), s.len())}
 }
@@ -40,6 +40,20 @@ fn fetch_str(s:&[u8])-> String {
   // SAFETY: 写FFI哪有safe的
   unsafe {
     fetch_str(s.as_ptr(), s.len());
+    let (ptr,len) = NEXT_STR;
+    String::from_raw_parts(ptr, len, len)
+  }
+}
+
+/// 读取静态字符串作为模块
+fn fetch_mod(s:&[u8])-> String {
+  #[link(wasm_import_module = "key")]
+  extern {
+    fn fetch_mod(s_ptr:*const u8, s_len:usize);
+  }
+  // SAFETY: 写FFI哪有safe的
+  unsafe {
+    fetch_mod(s.as_ptr(), s.len());
     let (ptr,len) = NEXT_STR;
     String::from_raw_parts(ptr, len, len)
   }
@@ -77,7 +91,7 @@ static PANIC_HOOK: fn(&std::panic::PanicInfo) = |inf|{
   }else if let Some(mes) = inf.payload().downcast_ref::<String>() {
     mes
   }else{"错误"};
-  let s = format!("\n> {}\n  {}:第{}行\n\n> Key Script CopyLeft by Subkey", s, place, line);
+  let s = format!("> {}\n  {}:第{}行\n\n> Key Script CopyLeft by Subkey", s, place, line);
   unsafe {err(s.as_bytes())}
 };
 
@@ -92,12 +106,16 @@ extern fn run(p:*mut u8, len:usize) {
   /// 该指针是js端调用rust alloc得到的, 要在此拿到其所有权
   let s = unsafe { Vec::<u8>::from_raw_parts(p, len, len) };
 
-  unsafe {PLACE = "用户输入".to_owned()}
+  unsafe {
+    let (ptr,len) = NEXT_STR;
+    PLACE = String::from_raw_parts(ptr, len, len);
+  }
 
   let scanned = scan::scan(&s);
   if unsafe{PRINT_AST} {
     log(format!("{:?}", scanned).as_bytes())
   }
+
   runtime::run(&scanned);
 }
 

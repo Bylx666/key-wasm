@@ -28,7 +28,7 @@ WebAssembly.instantiateStreaming(
         console.log(wasm.read(ptr,len))
       },
       err(ptr,len) {
-        throw(wasm.read(ptr, len))
+        console.error(wasm.read(ptr, len))
       },
       key_try(run, catc) {
         try {
@@ -38,6 +38,7 @@ WebAssembly.instantiateStreaming(
           _wasm.call2(catc, wasm.write(s), s.byteLength);
         }
       },
+      // 暂时无用
       fetch_str(ptr,len) {
         // 读取字符串并fetch
         let req = new XMLHttpRequest();
@@ -48,6 +49,11 @@ WebAssembly.instantiateStreaming(
         // 写入buffer并告诉rust写入的字符串信息
         let writed = wasm.write(buf);
         _wasm.set_str(writed, buf.byteLength);
+      },
+      // wasm获取mod的行为, 需要自行替换
+      // 见key-play仓库
+      fetch_mod(ptr, len) {
+        _wasm.set_str(0,0);
       }
     }
   }
