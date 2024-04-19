@@ -109,6 +109,7 @@ extern fn run(p:*mut u8, len:usize) {
   unsafe {
     let (ptr,len) = NEXT_STR;
     PLACE = String::from_raw_parts(ptr, len, len);
+    LINE = 1;
   }
 
   let scanned = scan::scan(&s);
