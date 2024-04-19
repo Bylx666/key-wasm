@@ -33,7 +33,7 @@ fn log(args:Vec<CalcRef>, _cx:Scope)-> Litr {
 
 /// debug的格式输出
 fn debug(args:Vec<CalcRef>, _cx:Scope)-> Litr {
-  args.iter().for_each(|v|println!("{:?}", &**v));
+  args.iter().for_each(|v|crate::log(format!("{:?}", &**v).as_bytes()));
   Litr::Uninit
 }
 
